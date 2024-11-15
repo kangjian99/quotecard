@@ -84,8 +84,26 @@ const ChartGenerator = () => {
     }
     setIsAnalyzing(true);
     const analysis = await analyzeDataWithAI(rawData, chartType);
+    
+    // 强制使用用户选择的图表类型
+    analysis.chartType = chartType;
+    
     setChartConfig(analysis);
     setIsAnalyzing(false);
+  };
+
+  // 修改图表类型选择的处理函数
+  const handleChartTypeChange = (value: ChartType) => {
+    setChartType(value);
+    
+    // 如果已有图表配置，直接更新图表类型
+    if (chartConfig) {
+      const updatedConfig = {
+        ...chartConfig,
+        chartType: value
+      };
+      setChartConfig(updatedConfig);
+    }
   };
 
   // 渲染图表
@@ -137,6 +155,12 @@ const ChartGenerator = () => {
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          datasets: {
+            bar: {
+              barPercentage: 0.6,
+              categoryPercentage: 0.8
+            }
+          },
           animation: {
             duration: 1000,
             easing: 'easeInOutQuart'
@@ -213,6 +237,27 @@ const ChartGenerator = () => {
                 title: {
                   color: '#333'
                 }
+              }
+            } : chartConfig.chartType === 'line' ? {
+              color: '#333',
+              backgroundColor: 'rgba(255, 255, 255, 0.85)',
+              borderRadius: 4,
+              font: {
+                size: 11,
+                weight: 'bold',
+                family: "'Inter', sans-serif"
+              },
+              padding: { top: 4, bottom: 4, left: 6, right: 6 },
+              align: 'top',
+              offset: 8,
+              formatter: (value: unknown) => {
+                // 确保value是数字
+                const numValue = typeof value === 'object' && value !== null
+                  ? (value as { y?: number }).y || 0
+                  : typeof value === 'number'
+                    ? value
+                    : 0;
+                return numValue.toString();
               }
             } : {
               display: false
@@ -334,7 +379,7 @@ const ChartGenerator = () => {
         <div className="mb-4 flex gap-4 items-center">
           <Select
             value={chartType}
-            onValueChange={(value: ChartType) => setChartType(value)}
+            onValueChange={handleChartTypeChange}
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="选择图表类型" />
@@ -343,7 +388,7 @@ const ChartGenerator = () => {
               <SelectItem value="line">折线图</SelectItem>
               <SelectItem value="bar">柱状图</SelectItem>
               <SelectItem value="pie">饼图</SelectItem>
-              <SelectItem value="area">折线图(填充)</SelectItem>
+              {/*<SelectItem value="area">折线图(填充)</SelectItem>*/}
               <SelectItem value="scatter">散点图</SelectItem>
             </SelectContent>
           </Select>
