@@ -49,6 +49,19 @@ const ChartGenerator = () => {
 
       const analysis = await response.json();
       // console.log('AI返回的分析结果:', analysis);
+
+      // 处理重复的series
+      analysis.data.series = analysis.data.series.reduce((acc: { name: string; data: DataPoint[] }[], current: { name: string; data: DataPoint[] }, index: number) => {
+        const isDuplicate = acc.some(item => 
+          item.name === current.name && 
+          item.data.length === current.data.length
+        );
+        if (!isDuplicate) {
+          acc.push(current);
+        }
+        return acc;
+      }, [] as { name: string; data: DataPoint[] }[]);
+
       return analysis;
     } catch (error) {
       console.error('AI分析失败:', error);
@@ -175,13 +188,13 @@ const ChartGenerator = () => {
               align: 'center',
               labels: {
                 usePointStyle: true,
-                padding: 20,
+                padding: 25,
                 font: {
                   size: 13,
                   family: "'Inter', sans-serif"
                 },
-                boxWidth: 40,
-                boxHeight: 40
+                boxWidth: 10,
+                boxHeight: 10
               }
             },
             tooltip: {
@@ -306,7 +319,7 @@ const ChartGenerator = () => {
                   size: 12,
                   family: "'Inter', sans-serif"
                 },
-                padding: 8
+                padding: chartConfig.chartType === 'line' ? 12 : 8,
               }
             }
           } : undefined,
@@ -314,7 +327,7 @@ const ChartGenerator = () => {
             padding: {
               top: 30,
               right: 20,
-              bottom: 20,
+              bottom: chartConfig.chartType === 'pie' ? 30 : 20,
               left: 20
             }
           }
@@ -435,9 +448,23 @@ const ChartGenerator = () => {
             <div 
               id="chart-container" 
               className="bg-white p-6 rounded-xl shadow-lg border border-gray-100"
-              style={{ height: '400px' }}
+              style={{ 
+                height: '400px',
+                display: 'flex',
+                alignItems: 'center'
+              }}
             >
-              <canvas id="chart-canvas"></canvas>
+              <div 
+                style={{
+                  position: 'relative',
+                  height: '100%',
+                  flex: '1',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  borderRadius: '8px',
+                }}
+              >
+                <canvas id="chart-canvas"></canvas>
+              </div>
             </div>
             
             <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
