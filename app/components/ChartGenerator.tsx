@@ -329,7 +329,7 @@ const ChartGenerator = () => {
   };
 
   return (
-    <div className="min-h-screen py-12">
+    <div className="min-h-screen pt-2 pb-12">
       <div className="container mx-auto p-4 max-w-4xl">
         <div className="mb-4 flex gap-4 items-center">
           <Select
