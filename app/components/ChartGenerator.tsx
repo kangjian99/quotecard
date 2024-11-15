@@ -171,15 +171,17 @@ const ChartGenerator = () => {
           },
           plugins: {
             legend: {
-              display: chartConfig.style.showLegend,
-              position: 'top',
+              position: 'right',
+              align: 'center',
               labels: {
                 usePointStyle: true,
                 padding: 20,
                 font: {
                   size: 13,
                   family: "'Inter', sans-serif"
-                }
+                },
+                boxWidth: 40,
+                boxHeight: 40
               }
             },
             tooltip: {
@@ -310,8 +312,8 @@ const ChartGenerator = () => {
           } : undefined,
           layout: {
             padding: {
-              top: 20,
-              right: 100,
+              top: 30,
+              right: 20,
               bottom: 20,
               left: 20
             }
