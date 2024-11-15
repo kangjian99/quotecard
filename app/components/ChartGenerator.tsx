@@ -86,7 +86,7 @@ const ChartGenerator = () => {
     const analysis = await analyzeDataWithAI(rawData, chartType);
     
     // 强制使用用户选择的图表类型
-    analysis.chartType = chartType;
+    //analysis.chartType = chartType;
     
     setChartConfig(analysis);
     setIsAnalyzing(false);
