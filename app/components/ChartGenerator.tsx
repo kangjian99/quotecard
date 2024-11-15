@@ -371,7 +371,7 @@ const ChartGenerator = () => {
           <textarea
             className="w-full p-3 border rounded-md"
             rows={8}
-            placeholder="输入数据..."
+            placeholder="以自然语言输入包含数据的文字..."
             value={rawData}
             onChange={(e) => setRawData(e.target.value)}
           />

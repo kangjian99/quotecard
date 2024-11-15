@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { chartAISchema, ChartAnalysis, DataPoint } from '../../types/chart';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
-
 export async function POST(request: Request) {
   try {
+    const apiKey = process.env.GOOGLE_API_KEY_ALT 
+      ? Math.random() > 0.5 
+        ? process.env.GOOGLE_API_KEY!
+        : process.env.GOOGLE_API_KEY_ALT
+      : process.env.GOOGLE_API_KEY!;
+    
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
     const { text, chartType } = await request.json();
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
