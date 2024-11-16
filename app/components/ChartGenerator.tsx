@@ -25,6 +25,7 @@ const ChartGenerator = () => {
   const [chart, setChart] = useState<Chart | null>(null);
   const [startFromZero, setStartFromZero] = useState(false);
   const [useSmall, setUseSmall] = useState(false);
+  const [useFill, setUseFill] = useState(true);
 
   const analyzeDataWithAI = async (rawText: string, chartType: ChartType) => {
     try {
@@ -147,9 +148,9 @@ const ChartGenerator = () => {
           backgroundColor: chartConfig.chartType === 'line' ? 
             createGradient(ctx, chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor) :
             chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor,
-          borderColor: chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor,
+          borderColor: chartConfig.style.secondaryColors?.[index] || chartConfig.style.primaryColor,
           borderWidth: 1.5,
-          fill: false,
+          fill: chartConfig.chartType === 'line' ? useFill : false,
           tension: 0.4,
           pointRadius: 4,
           pointHoverRadius: 6,
@@ -323,15 +324,17 @@ const ChartGenerator = () => {
                 text: chartConfig.data.xAxisLabel || '',
                 font: {
                   size: 13,
+                  weight: 'bold',
                   family: "'Inter', sans-serif"
-                }
+                },
+                color: 'rgba(0, 0, 0, 0.8)'
               },
               ticks: {
                 font: {
                   size: 12,
                   family: "'Inter', sans-serif"
                 },
-                color: 'rgba(0, 0, 0, 0.6)'
+                color: chartConfig.style.primaryColor || 'rgba(0, 0, 0, 0.6)'
               }
             },
             y: {
@@ -347,8 +350,10 @@ const ChartGenerator = () => {
                 text: chartConfig.data.yAxisLabel || chartConfig.data.series[0].name,
                 font: {
                   size: 13,
+                  weight: 'bold',
                   family: "'Inter', sans-serif"
-                }
+                },
+                color: 'rgba(0, 0, 0, 0.8)'
               },
               ticks: {
                 font: {
@@ -359,7 +364,7 @@ const ChartGenerator = () => {
                 color: 'rgba(0, 0, 0, 0.6)'
               }
             },
-            ...(needsSecondYAxis(datasets) ? {
+            ...(useSecondYAxis ? {
               y1: {
                 type: 'linear',
                 display: true,
@@ -376,7 +381,8 @@ const ChartGenerator = () => {
                   font: {
                     size: 13,
                     family: "'Inter', sans-serif"
-                  }
+                  },
+                  color: chartConfig.style.secondaryColors?.[2] || 'rgba(0, 0, 0, 0.8)'
                 },
                 ticks: {
                   font: {
@@ -402,13 +408,13 @@ const ChartGenerator = () => {
       
       setChart(newChart);
     }
-  }, [chartConfig, startFromZero]);
+  }, [chartConfig, startFromZero, useFill]);
 
   // 添加渐变背景创建函数
   const createGradient = (ctx: CanvasRenderingContext2D, color: string) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, 400);
     const rgbaColor = hexToRgba(color);
-    gradient.addColorStop(0, `rgba(${rgbaColor}, 0.4)`);
+    gradient.addColorStop(0, `rgba(${rgbaColor}, 0.2)`);
     gradient.addColorStop(1, `rgba(${rgbaColor}, 0.0)`);
     return gradient;
   };
@@ -532,7 +538,18 @@ const ChartGenerator = () => {
               onCheckedChange={setStartFromZero}
             />
             <Label htmlFor="start-from-zero" className="text-sm text-gray-600">
-              Y轴从0开始
+              Y轴起点0
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="use-fill"
+              checked={useFill}
+              onCheckedChange={setUseFill}
+            />
+            <Label htmlFor="use-fill" className="text-sm text-gray-600">
+              填充
             </Label>
           </div>
 
