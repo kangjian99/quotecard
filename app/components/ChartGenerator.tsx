@@ -25,6 +25,7 @@ const ChartGenerator = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chart, setChart] = useState<Chart | null>(null);
   const [startFromZero, setStartFromZero] = useState(false);
+  const [useSmall, setUseSmall] = useState(false);
 
   const analyzeDataWithAI = async (rawText: string, chartType: ChartType) => {
     try {
@@ -37,7 +38,8 @@ const ChartGenerator = () => {
         },
         body: JSON.stringify({ 
           text: rawText,
-          chartType 
+          chartType,
+          useSmall 
         }),
       });
 
@@ -139,24 +141,45 @@ const ChartGenerator = () => {
         ),
         borderColor: '#fff',
         borderWidth: 2,
-      }] : chartConfig.data.series.map((series, index) => ({
-        label: series.name,
-        data: series.data.map(d => d.y),
-        backgroundColor: chartConfig.chartType === 'line' ? 
-          createGradient(ctx, chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor) :
-          chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor,
-        borderColor: chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor,
-        borderWidth: 2,
-        fill: false, //chartConfig.chartType === 'line' ? true : 
-        tension: 0.4, // 使线条更平滑
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        pointBackgroundColor: '#fff',
-        pointBorderWidth: 2,
-        pointHoverBorderWidth: 3,
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor,
-      }));
+      }] : chartConfig.data.series.map((series, index) => {
+        const baseConfig = {
+          label: series.name,
+          data: series.data.map(d => d.y),
+          backgroundColor: chartConfig.chartType === 'line' ? 
+            createGradient(ctx, chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor) :
+            chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor,
+          borderColor: chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor,
+          borderWidth: 1.5,
+          fill: false,
+          tension: 0.4,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverBorderWidth: 3,
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor,
+        };
+
+        // 先创建临时数据集来判断是否需要第二Y轴
+        const tempDatasets = chartConfig.data.series.map(s => ({
+          data: s.data.map(d => d.y)
+        }));
+
+        const useSecondAxis = needsSecondYAxis(tempDatasets);
+        console.log('Use second axis:', useSecondAxis);
+
+        return {
+          ...baseConfig,
+          yAxisID: useSecondAxis && index === 1 ? 'y1' : 'y'
+        };
+      });
+
+      // 分别计算两个轴的最大值
+      const firstAxisData = datasets[0].data;
+      const secondAxisData = datasets.length > 1 ? datasets[1].data : [];
+      const firstAxisMax = getMaxValue(firstAxisData);
+      const secondAxisMax = datasets.length > 1 ? getMaxValue(secondAxisData) : 0;
 
       const newChart = new Chart(canvas, {
         type: chartConfig.chartType,
@@ -193,8 +216,8 @@ const ChartGenerator = () => {
                   size: 13,
                   family: "'Inter', sans-serif"
                 },
-                boxWidth: 10,
-                boxHeight: 10
+                boxWidth: 8,
+                boxHeight: 8
               }
             },
             tooltip: {
@@ -254,12 +277,12 @@ const ChartGenerator = () => {
                 }
               }
             } : chartConfig.chartType === 'line' ? {
-              color: '#333',
-              backgroundColor: 'rgba(255, 255, 255, 0.85)',
-              borderRadius: 4,
+              color: 'rgba(0,0,0,0.65)',
+              backgroundColor: 'rgba(255, 255, 255, 0.55)',
+              borderRadius: 1,
               font: {
                 size: 11,
-                weight: 'bold',
+                //weight: 'bold',
                 family: "'Inter', sans-serif"
               },
               padding: { top: 4, bottom: 4, left: 6, right: 6 },
@@ -296,19 +319,21 @@ const ChartGenerator = () => {
                 font: {
                   size: 12,
                   family: "'Inter', sans-serif"
-                }
+                },
+                color: 'rgba(0, 0, 0, 0.6)'
               }
             },
             y: {
               beginAtZero: startFromZero,
               min: startFromZero ? 0 : undefined,
+              max: firstAxisMax,
               grid: {
                 display: chartConfig.style.showGrid,
                 color: 'rgba(0, 0, 0, 0.05)',
               },
               title: {
                 display: true,
-                text: chartConfig.data.yAxisLabel || '',
+                text: chartConfig.data.yAxisLabel || chartConfig.data.series[0].name,
                 font: {
                   size: 13,
                   family: "'Inter', sans-serif"
@@ -320,8 +345,38 @@ const ChartGenerator = () => {
                   family: "'Inter', sans-serif"
                 },
                 padding: chartConfig.chartType === 'line' ? 12 : 8,
+                color: 'rgba(0, 0, 0, 0.6)'
               }
-            }
+            },
+            ...(needsSecondYAxis(datasets) ? {
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                grid: {
+                  drawOnChartArea: false,
+                },
+                beginAtZero: startFromZero,
+                min: startFromZero ? 0 : undefined,
+                max: secondAxisMax,
+                title: {
+                  display: true,
+                  text: chartConfig.data.series[1].name,
+                  font: {
+                    size: 13,
+                    family: "'Inter', sans-serif"
+                  }
+                },
+                ticks: {
+                  font: {
+                    size: 12,
+                    family: "'Inter', sans-serif"
+                  },
+                  padding: 12,
+                  color: 'rgba(0, 0, 0, 0.6)'
+                }
+              }
+            } : {})
           } : undefined,
           layout: {
             padding: {
@@ -388,6 +443,57 @@ const ChartGenerator = () => {
     }
   };
 
+  const getMaxValue = (data: number[]) => {
+    const max = Math.max(...data);
+    
+    // 增加10%空间并取整
+    const maxWithPadding = max * 1.1;
+    
+    if (maxWithPadding >= 100000) {
+      // 大于等于10万的数字取整到5000
+      return Math.ceil(maxWithPadding / 5000) * 5000;
+    } else if (maxWithPadding >= 10000) {
+      // 大于等于1万的数字取整到1000
+      return Math.ceil(maxWithPadding / 1000) * 1000;
+    } else if (maxWithPadding >= 1000) {
+      // 大于等于1000的数字取整到100
+      return Math.ceil(maxWithPadding / 100) * 100;
+    } else if (maxWithPadding >= 100) {
+      // 大于等于100的数字取整到10
+      return Math.ceil(maxWithPadding / 10) * 10;
+    } else if (maxWithPadding >= 10) {
+      // 大于等于10的数字取整到5
+      return Math.ceil(maxWithPadding / 5) * 5;
+    } else {
+      // 小于10的数字直接取整到下一个整数
+      return Math.ceil(max);
+    }
+  };
+
+  // 添加判断是否需要第二Y轴的函数
+  const needsSecondYAxis = (datasets: any[]) => {
+    // 先检查chartConfig是否存在
+    if (!chartConfig) return false;
+    
+    // 只有折线图才考虑使用双Y轴
+    if (chartConfig.chartType !== 'line') return false;
+    
+    if (datasets.length < 2) return false;
+    
+    // 计算每个系列的最大值
+    const maxValues = datasets.map(dataset => 
+      Math.max(...dataset.data.map((d: number) => d))
+    );
+    console.log('Series max values:', maxValues);
+    
+    // 计算最大值之间的比例
+    const ratio = Math.max(...maxValues) / Math.min(...maxValues);
+    console.log('Value ratio:', ratio);
+    
+    // 如果比例超过5倍,建议使用第二Y轴
+    return ratio > 5;
+  };
+
   return (
     <div className="min-h-screen pt-2 pb-12">
       <div className="container mx-auto p-4 max-w-4xl">
@@ -416,6 +522,17 @@ const ChartGenerator = () => {
             />
             <Label htmlFor="start-from-zero" className="text-sm text-gray-600">
               Y轴从0开始
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="use-small"
+              checked={useSmall}
+              onCheckedChange={setUseSmall}
+            />
+            <Label htmlFor="use-small" className="text-sm text-gray-600">
+              quick
             </Label>
           </div>
 
@@ -473,15 +590,6 @@ const ChartGenerator = () => {
                 <ul className="list-disc pl-5 space-y-2">
                   {chartConfig.insights.map((insight, i) => (
                     <li key={i}>{insight}</li>
-                  ))}
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="text-base font-medium mb-2">优化建议:</h3>
-                <ul className="list-disc pl-5 space-y-2">
-                  {chartConfig.recommendations.map((rec, i) => (
-                    <li key={i}>{rec}</li>
                   ))}
                 </ul>
               </div>

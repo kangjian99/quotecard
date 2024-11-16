@@ -12,9 +12,9 @@ export async function POST(request: Request) {
     
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    const { text, chartType } = await request.json();
+    const { text, chartType, useSmall = false } = await request.json();
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: useSmall ? "gemini-1.5-flash-8b" : "gemini-1.5-flash",
       systemInstruction: "你是一个出色的数据分析师与图表设计师",
       generationConfig: {
         maxOutputTokens: 2048,

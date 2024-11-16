@@ -43,7 +43,7 @@ export interface ChartAnalysis {
   data: ChartData;
   style: ChartStyle;
   insights: string[];
-  recommendations: string[];
+  //recommendations: string[];
 }
 
 // Google AI Schema
@@ -106,11 +106,13 @@ export const chartAISchema = {
     insights: {
       type: SchemaType.ARRAY,
       items: { type: SchemaType.STRING }
-    },
-    recommendations: {
-      type: SchemaType.ARRAY, 
-      items: { type: SchemaType.STRING }
     }
   },
-  required: ["chartType", "data", "style", "insights", "recommendations"]
+  required: ["chartType", "data", "style"]
 };
+
+export interface ChartAnalysisRequest {
+  text: string;
+  chartType: ChartType;
+  useSmall?: boolean;
+}
