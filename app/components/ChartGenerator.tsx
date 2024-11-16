@@ -10,7 +10,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChartAnalysis, ChartType, DataPoint } from '../types/chart';
-import { toPng } from 'html-to-image';
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import ChartDataLabels from 'chartjs-plugin-datalabels';
@@ -174,12 +173,24 @@ const ChartGenerator = () => {
           yAxisID: useSecondAxis && index === 1 ? 'y1' : 'y'
         };
       });
-
+      
+      if (!datasets || datasets.length === 0) {
+        console.log('No datasets available');
+        return;
+      }
       // 分别计算两个轴的最大值
       const firstAxisData = datasets[0].data;
       const secondAxisData = datasets.length > 1 ? datasets[1].data : [];
-      const firstAxisMax = getMaxValue(firstAxisData);
-      const secondAxisMax = datasets.length > 1 ? getMaxValue(secondAxisData) : 0;
+
+      // 如果不需要第二Y轴,使用所有系列的最大值
+      const useSecondYAxis = needsSecondYAxis(datasets);
+      const firstAxisMax = useSecondYAxis 
+        ? getMaxValue(firstAxisData)
+        : getMaxValue(datasets.flatMap(d => d.data)); // 合并所有系列的数据
+
+      const secondAxisMax = useSecondYAxis && datasets.length > 1 
+        ? getMaxValue(secondAxisData) 
+        : 0;
 
       const newChart = new Chart(canvas, {
         type: chartConfig.chartType,
@@ -532,7 +543,7 @@ const ChartGenerator = () => {
               onCheckedChange={setUseSmall}
             />
             <Label htmlFor="use-small" className="text-sm text-gray-600">
-              quick
+              ⚡
             </Label>
           </div>
 
