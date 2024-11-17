@@ -77,7 +77,8 @@ export const chartAISchema = {
               }
             },
             required: ["name", "data"]
-          }
+          },
+          description: "数据系列，可能多个维度"
         },
         title: { type: SchemaType.STRING },
         xAxisLabel: { type: SchemaType.STRING },
@@ -116,3 +117,43 @@ export interface ChartAnalysisRequest {
   chartType: ChartType;
   useSmall?: boolean;
 }
+
+import { z } from 'zod';
+
+export const ChartOpenAISchema = z.object({
+  chartType: z.enum(['line', 'bar', 'pie', 'scatter']),
+  
+  data: z.object({
+    series: z.array(z.object({
+      name: z.string(),
+      data: z.array(z.object({
+        x: z.string(),
+        y: z.number()
+      }))
+    })).describe("数据系列，可能多个维度"), 
+    title: z.string(),
+    xAxisLabel: z.string(),
+    yAxisLabel: z.string()
+  }).required().describe("数据，包括series, title, xAxisLabel, yAxisLabel"),
+
+  style: z.object({
+    theme: z.string(),
+    backgroundColor: z.string(),
+    primaryColor: z.string(),
+    secondaryColors: z.array(z.string()),
+    fontFamily: z.enum([
+      'serif',
+      'sans-serif',
+      'monospace',
+      'serif-cn',
+      'sans-cn',
+      'kai-cn'
+    ]),
+    fontSize: z.number(),
+    showLegend: z.boolean(),
+    showGrid: z.boolean(),
+    animation: z.boolean()
+  }).required(),
+  
+  insights: z.array(z.string()).optional()
+}).required();

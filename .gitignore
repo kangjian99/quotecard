@@ -41,3 +41,4 @@ app/test.ts
 app/QuoteCardGenerator_三个字体.tsx
 app/page.3modes.tsx
 app/types/index.ts
+app/api/analyze-chart/openai/route.ts

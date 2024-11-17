@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { chartAISchema, ChartAnalysis, DataPoint } from '../../types/chart';
+import { chartAISchema, ChartAnalysis } from '../../types/chart';
+import { getChartAnalysisPrompt } from './prompt';
 
 export async function POST(request: Request) {
   try {
@@ -23,27 +24,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const prompt = `分析用户提供内容中的数据并生成图表配置方案，要求如下:
-
-期望图表类型为: ${chartType || '自动推荐'}
-
-请分析数据特征并提供:
-1. 最适合的图表类型和配置
-2. 数据处理建议
-3. 视觉样式方案
-4. 关键数据洞察
-5. 图表优化建议
-
-要求:
-- 根据数据特征选择合适的图表类型
-- 提供清晰的数据标签和图例
-- 选择协调的配色方案
-- 确保图表可读性和美观性
-- 突出关键数据特征和趋势
-
-用户提供内容:
-${text}
-`;
+    const prompt = getChartAnalysisPrompt(chartType, text);
 
     const result = await model.generateContent(prompt);
     const response = JSON.parse(result.response.text()) as ChartAnalysis;

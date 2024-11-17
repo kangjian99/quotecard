@@ -26,12 +26,16 @@ const ChartGenerator = () => {
   const [startFromZero, setStartFromZero] = useState(false);
   const [useSmall, setUseSmall] = useState(false);
   const [useFill, setUseFill] = useState(true);
+  const [useAltApi, setUseAltApi] = useState(false);
 
   const analyzeDataWithAI = async (rawText: string, chartType: ChartType) => {
     try {
-      // console.log('发送到AI的原始文本:', rawText);
-      
-      const response = await fetch('/api/analyze-chart', {
+      // 根据开关状态决定API端点
+      const apiEndpoint = useAltApi
+        ? '/api/analyze-chart/groq'
+        : '/api/analyze-chart';
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,8 +56,14 @@ const ChartGenerator = () => {
       const analysis = await response.json();
       // console.log('AI返回的分析结果:', analysis);
 
+      // 定义series的类型
+      interface Series {
+        name: string;
+        data: DataPoint[];
+      }
+
       // 处理重复的series
-      analysis.data.series = analysis.data.series.reduce((acc: { name: string; data: DataPoint[] }[], current: { name: string; data: DataPoint[] }, index: number) => {
+      analysis.data.series = analysis.data.series.reduce((acc: Series[], current: Series) => {
         const isDuplicate = acc.some(item => 
           item.name === current.name && 
           item.data.length === current.data.length
@@ -62,7 +72,29 @@ const ChartGenerator = () => {
           acc.push(current);
         }
         return acc;
-      }, [] as { name: string; data: DataPoint[] }[]);
+      }, [] as Series[]);
+
+      // 检查是否需要转置
+      if (analysis.data.series.length > analysis.data.series[0].data.length) {
+        // 创建新的series结构
+        const transposedSeries = analysis.data.series[0].data.map((_: DataPoint, dataIndex: number) => {
+          return {
+            name: analysis.data.series[0].data[dataIndex].x,
+            data: analysis.data.series.map((series: Series) => ({
+              x: series.name,
+              y: series.data[dataIndex]?.y ?? 0
+            }))
+          };
+        });
+
+        analysis.data.series = transposedSeries;
+        
+        // 交换x轴和y轴的标签
+        const tempLabel = analysis.data.xAxisLabel;
+        analysis.data.xAxisLabel = analysis.data.yAxisLabel;
+        analysis.data.yAxisLabel = tempLabel;
+        console.log('转置后的分析结果:', analysis);
+      }
 
       return analysis;
     } catch (error) {
@@ -229,7 +261,26 @@ const ChartGenerator = () => {
                   family: "'Inter', sans-serif"
                 },
                 boxWidth: 8,
-                boxHeight: 8
+                boxHeight: 8,
+                // 自定义回调函数以实现中文字符超过6个时换行
+                generateLabels: function(chart) {
+                  const original = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                  original.forEach(label => {
+                    if (label.text && typeof label.text === 'string') {
+                      const chineseCharCount = (label.text.match(/[\u4e00-\u9fa5]/g) || []).length;
+                      if (chineseCharCount > 6) {
+                        // 将文本按每6个中文字符进行拆分
+                        const regex = /([\u4e00-\u9fa5]{1,6})/g;
+                        const parts = label.text.match(regex);
+                        if (parts) {
+                          // 将拆分后的数组赋值给 label.text
+                          (label as any).text = parts;
+                        }
+                      }
+                    }
+                  });
+                  return original;
+                }
               }
             },
             tooltip: {
@@ -380,6 +431,7 @@ const ChartGenerator = () => {
                   text: chartConfig.data.series[1].name,
                   font: {
                     size: 13,
+                    weight: 'bold',
                     family: "'Inter', sans-serif"
                   },
                   color: chartConfig.style.secondaryColors?.[2] || 'rgba(0, 0, 0, 0.8)'
@@ -501,11 +553,11 @@ const ChartGenerator = () => {
     const maxValues = datasets.map(dataset => 
       Math.max(...dataset.data.map((d: number) => d))
     );
-    console.log('Series max values:', maxValues);
+    //console.log('Series max values:', maxValues);
     
     // 计算最大值之间的比例
     const ratio = Math.max(...maxValues) / Math.min(...maxValues);
-    console.log('Value ratio:', ratio);
+    //console.log('Value ratio:', ratio);
     
     // 如果比例超过5倍,建议使用第二Y轴
     return ratio > 5;
@@ -531,37 +583,51 @@ const ChartGenerator = () => {
             </SelectContent>
           </Select>
           
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="start-from-zero"
-              checked={startFromZero}
-              onCheckedChange={setStartFromZero}
-            />
-            <Label htmlFor="start-from-zero" className="text-sm text-gray-600">
-              Y轴起点0
-            </Label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="use-fill"
-              checked={useFill}
-              onCheckedChange={setUseFill}
-            />
-            <Label htmlFor="use-fill" className="text-sm text-gray-600">
-              填充
-            </Label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="use-small"
-              checked={useSmall}
-              onCheckedChange={setUseSmall}
-            />
-            <Label htmlFor="use-small" className="text-sm text-gray-600">
-              ⚡
-            </Label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center space-x-2 w-20">
+                <Switch
+                  id="use-small"
+                  checked={useSmall}
+                  onCheckedChange={setUseSmall}
+                />
+                <Label htmlFor="use-small" className="text-sm text-gray-600">
+                  ⚡️
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2 w-28">
+                <Switch
+                  id="use-alt"
+                  checked={useAltApi}
+                  onCheckedChange={setUseAltApi}
+                />
+                <Label htmlFor="use-alt" className="text-xs text-gray-600">
+                  ALT
+                </Label>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center space-x-2 w-20">
+                <Switch
+                  id="use-fill"
+                  checked={useFill}
+                  onCheckedChange={setUseFill}
+                />
+                <Label htmlFor="use-fill" className="text-sm text-gray-600">
+                  填充
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2 w-28">
+                  <Switch
+                    id="start-from-zero"
+                    checked={startFromZero}
+                    onCheckedChange={setStartFromZero}
+                  />
+                  <Label htmlFor="start-from-zero" className="text-sm text-gray-600">
+                    Y轴起点0
+                </Label>
+              </div>
+            </div>
           </div>
 
           <Button 
