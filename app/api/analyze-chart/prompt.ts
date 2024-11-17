@@ -7,9 +7,8 @@ export const getChartAnalysisPrompt = (chartType: string, text: string) => {
   
   请分析数据特征并提供:
   1. 最适合的图表类型和配置
-  2. 数据处理建议
-  3. 视觉样式方案
-  4. 关键数据洞察
+  2. 视觉样式方案
+  3. 关键数据洞察
   
   要求:
   - 根据数据特征选择合适的图表类型
