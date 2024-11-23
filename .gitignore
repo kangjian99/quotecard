@@ -37,7 +37,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 app/math.js
-app/test.ts
+app/test/*
 app/QuoteCardGenerator_三个字体.tsx
 app/page.3modes.tsx
 app/types/index.ts

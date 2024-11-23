@@ -121,7 +121,7 @@ export interface ChartAnalysisRequest {
 import { z } from 'zod';
 
 export const ChartOpenAISchema = z.object({
-  chartType: z.enum(['line', 'bar', 'pie', 'scatter']),
+  chartType: z.enum(['line', 'bar', 'pie', 'scatter']).describe("推荐的图表类型"),
   
   data: z.object({
     series: z.array(z.object({
@@ -129,7 +129,7 @@ export const ChartOpenAISchema = z.object({
       data: z.array(z.object({
         x: z.string(),
         y: z.number()
-      }))
+      }).required())
     })).describe("数据系列，可能多个维度"), 
     title: z.string(),
     xAxisLabel: z.string(),

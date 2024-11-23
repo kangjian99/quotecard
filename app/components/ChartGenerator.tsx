@@ -75,7 +75,7 @@ const ChartGenerator = () => {
       }, [] as Series[]);
 
       // 检查是否需要转置
-      if (analysis.data.series.length > analysis.data.series[0].data.length) {
+      if (analysis.data.series.length >= analysis.data.series[0].data.length * 2) {
         // 创建新的series结构
         const transposedSeries = analysis.data.series[0].data.map((_: DataPoint, dataIndex: number) => {
           return {
@@ -153,7 +153,78 @@ const ChartGenerator = () => {
     }
   };
 
-  // 渲染图表
+  // 修改判断是否需要第二Y轴的函数
+  const assignYAxis = (datasets: any[]): string[] => {
+    // 先检查chartConfig是否存在
+    if (!chartConfig) return datasets.map(() => 'y');
+
+    // 只有折线图才考虑使用双Y轴
+    if (chartConfig.chartType !== 'line') return datasets.map(() => 'y');
+
+    if (datasets.length < 2) return datasets.map(() => 'y');
+
+    // 计算每个系列的数据范围
+    const ranges = datasets.map((dataset, index) => {
+      const values = dataset.data.map((d: DataPoint) => d.y);
+      const max = Math.max(...values);
+      const min = Math.min(...values);
+      return {
+        index,
+        range: max - min,
+        max
+      };
+    });
+
+    // 按范围降序排序
+    ranges.sort((a, b) => b.range - a.range);
+
+    // 最大范围作为基准
+    const baseRange = ranges[0].range;
+
+    // 找出范围小于基准范围五分之一的系列
+    const eligibleForSecondAxis = ranges.filter(r => r.range < baseRange / 5);
+
+    if (eligibleForSecondAxis.length === 0) {
+      // 没有系列需要第二Y轴
+      return datasets.map(() => 'y');
+    }
+
+    // 在符合条件的系列中，选择范围最大的那个
+    const secondAxisSeries = eligibleForSecondAxis.reduce((prev, current) => {
+      return current.range > prev.range ? current : prev;
+    }, eligibleForSecondAxis[0]);
+
+    // 初始化所有系列使用主Y轴
+    const yAxisAssignment = datasets.map(() => 'y');
+
+    // 分配第二Y轴
+    yAxisAssignment[secondAxisSeries.index] = 'y1';
+
+    return yAxisAssignment;
+  };
+
+  // 添加判断是否使用对数轴的函数
+  const shouldUseLogScale = (datasets: any[], yAxisAssignment: string[]): boolean => {
+    // 获取所有使用第一Y轴的数据
+    const firstAxisData = datasets
+      .filter((_, index) => yAxisAssignment[index] === 'y')
+      .flatMap(dataset => dataset.data.map((d: any) => {
+        // 处理数据可能是对象的情况
+        const value = typeof d === 'object' ? d.y : d;
+        return typeof value === 'number' ? value : 0;
+      }))
+      .filter(value => value > 0); // 只考虑正数
+
+    if (firstAxisData.length === 0) return false;
+
+    const max = Math.max(...firstAxisData);
+    const min = Math.min(...firstAxisData);
+
+    // 如果最大值与最小值的比值超过50，使用对数轴
+    return max / min > 50;
+  };
+
+  // 更新图表渲染的useEffect部分，以使用新的yAxisAssignment
   useEffect(() => {
     if (chartConfig && document.getElementById('chart-canvas')) {
       if (chart) {
@@ -162,7 +233,7 @@ const ChartGenerator = () => {
 
       const canvas = document.getElementById('chart-canvas') as HTMLCanvasElement;
       const ctx = canvas.getContext('2d');
-      
+
       if (!ctx) return;
 
       const datasets = chartConfig.chartType === 'pie' ? [{
@@ -193,44 +264,36 @@ const ChartGenerator = () => {
           pointHoverBorderColor: chartConfig.style.secondaryColors[index] || chartConfig.style.primaryColor,
         };
 
-        // 先创建临时数据集来判断是否需要第二Y轴
-        const tempDatasets = chartConfig.data.series.map(s => ({
-          data: s.data.map(d => d.y)
-        }));
-
-        const useSecondAxis = needsSecondYAxis(tempDatasets);
-        console.log('Use second axis:', useSecondAxis);
-
-        return {
-          ...baseConfig,
-          yAxisID: useSecondAxis && index === 1 ? 'y1' : 'y'
-        };
+        return baseConfig;
       });
-      
-      if (!datasets || datasets.length === 0) {
+
+      // 获取Y轴分配
+      const yAxisAssignment = assignYAxis(chartConfig.data.series);
+
+      // 更新datasets的yAxisID
+      const updatedDatasets = datasets.map((dataset, index) => ({
+        ...dataset,
+        yAxisID: yAxisAssignment[index]
+      }));
+
+      if (!updatedDatasets || updatedDatasets.length === 0) {
         console.log('No datasets available');
         return;
       }
-      // 分别计算两个轴的最大值
-      const firstAxisData = datasets[0].data;
-      const secondAxisData = datasets.length > 1 ? datasets[1].data : [];
 
-      // 如果不需要第二Y轴,使用所有系列的最大值
-      const useSecondYAxis = needsSecondYAxis(datasets);
-      const firstAxisMax = useSecondYAxis 
-        ? getMaxValue(firstAxisData)
-        : getMaxValue(datasets.flatMap(d => d.data)); // 合并所有系列的数据
+      // 计算各Y轴的最大值
+      const firstAxisData = updatedDatasets.filter(d => d.yAxisID === 'y').flatMap(d => d.data);
+      const secondAxisData = updatedDatasets.filter(d => d.yAxisID === 'y1').flatMap(d => d.data);
 
-      const secondAxisMax = useSecondYAxis && datasets.length > 1 
-        ? getMaxValue(secondAxisData) 
-        : 0;
+      const firstAxisMax = getMaxValue(firstAxisData);
+      const secondAxisMax = secondAxisData.length > 0 ? getMaxValue(secondAxisData) : 0;
 
       const newChart = new Chart(canvas, {
         type: chartConfig.chartType,
         plugins: [ChartDataLabels],
         data: {
           labels: chartConfig.data.series[0].data.map(d => d.x),
-          datasets: datasets
+          datasets: updatedDatasets
         },
         options: {
           responsive: true,
@@ -255,6 +318,7 @@ const ChartGenerator = () => {
               align: 'center',
               labels: {
                 usePointStyle: true,
+                pointStyle: chartConfig.chartType === 'bar' ? 'rect' : 'circle',
                 padding: 25,
                 font: {
                   size: 13,
@@ -262,7 +326,6 @@ const ChartGenerator = () => {
                 },
                 boxWidth: 8,
                 boxHeight: 8,
-                // 自定义回调函数以实现中文字符超过6个时换行
                 generateLabels: function(chart) {
                   const original = Chart.defaults.plugins.legend.labels.generateLabels(chart);
                   original.forEach(label => {
@@ -389,6 +452,7 @@ const ChartGenerator = () => {
               }
             },
             y: {
+              type: shouldUseLogScale(chartConfig.data.series, yAxisAssignment) ? 'logarithmic' : 'linear',
               beginAtZero: startFromZero,
               min: startFromZero ? 0 : undefined,
               max: firstAxisMax,
@@ -398,7 +462,9 @@ const ChartGenerator = () => {
               },
               title: {
                 display: true,
-                text: chartConfig.data.yAxisLabel || chartConfig.data.series[0].name,
+                text: yAxisAssignment.includes('y1') // 如果存在Y1轴，则Y轴使用对应系列的name
+                  ? chartConfig.data.series.find((s, idx) => yAxisAssignment[idx] === 'y')?.name || 'Y轴' 
+                  : chartConfig.data.yAxisLabel || chartConfig.data.series[0].name,
                 font: {
                   size: 13,
                   weight: 'bold',
@@ -412,10 +478,26 @@ const ChartGenerator = () => {
                   family: "'Inter', sans-serif"
                 },
                 padding: chartConfig.chartType === 'line' ? 12 : 8,
-                color: 'rgba(0, 0, 0, 0.6)'
+                color: 'rgba(0, 0, 0, 0.6)',
+                callback: function(tickValue: string | number) {
+                  // 确保tickValue是数字
+                  const value = typeof tickValue === 'number' ? tickValue : parseFloat(tickValue);
+                  
+                  if (isNaN(value)) return '';
+                  
+                  if (this.type === 'logarithmic') {
+                    const log10 = Math.log10(value);
+                    // 只显示10的幂的刻度
+                    if (log10 % 1 === 0) {
+                      return value.toLocaleString();
+                    }
+                    return '';
+                  }
+                  return value;
+                }
               }
             },
-            ...(useSecondYAxis ? {
+            ...(secondAxisMax > 0 ? {
               y1: {
                 type: 'linear',
                 display: true,
@@ -428,7 +510,7 @@ const ChartGenerator = () => {
                 max: secondAxisMax,
                 title: {
                   display: true,
-                  text: chartConfig.data.series[1].name,
+                  text: chartConfig.data.series.find((s: any, idx: number) => yAxisAssignment[idx] === 'y1')?.name || 'Y1轴',
                   font: {
                     size: 13,
                     weight: 'bold',
@@ -442,7 +524,23 @@ const ChartGenerator = () => {
                     family: "'Inter', sans-serif"
                   },
                   padding: 12,
-                  color: 'rgba(0, 0, 0, 0.6)'
+                  color: 'rgba(0, 0, 0, 0.6)',
+                  callback: function(tickValue: string | number) {
+                    // 确保tickValue是数字
+                    const value = typeof tickValue === 'number' ? tickValue : parseFloat(tickValue);
+                    
+                    if (isNaN(value)) return '';
+                    
+                    if (this.type === 'logarithmic') {
+                      const log10 = Math.log10(value);
+                      // 只显示10的幂的刻度
+                      if (log10 % 1 === 0) {
+                        return value.toLocaleString();
+                      }
+                      return '';
+                    }
+                    return value;
+                  }
                 }
               }
             } : {})
@@ -457,7 +555,7 @@ const ChartGenerator = () => {
           }
         }
       });
-      
+
       setChart(newChart);
     }
   }, [chartConfig, startFromZero, useFill]);
@@ -537,30 +635,6 @@ const ChartGenerator = () => {
       // 小于10的数字直接取整到下一个整数
       return Math.ceil(max);
     }
-  };
-
-  // 添加判断是否需要第二Y轴的函数
-  const needsSecondYAxis = (datasets: any[]) => {
-    // 先检查chartConfig是否存在
-    if (!chartConfig) return false;
-    
-    // 只有折线图才考虑使用双Y轴
-    if (chartConfig.chartType !== 'line') return false;
-    
-    if (datasets.length < 2) return false;
-    
-    // 计算每个系列的最大值
-    const maxValues = datasets.map(dataset => 
-      Math.max(...dataset.data.map((d: number) => d))
-    );
-    //console.log('Series max values:', maxValues);
-    
-    // 计算最大值之间的比例
-    const ratio = Math.max(...maxValues) / Math.min(...maxValues);
-    //console.log('Value ratio:', ratio);
-    
-    // 如果比例超过5倍,建议使用第二Y轴
-    return ratio > 5;
   };
 
   return (
