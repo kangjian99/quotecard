@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const { text, chartType, useSmall = false } = await request.json();
 
     const prompt = getChartAnalysisPrompt(chartType, text);
-    const chosenModel = useSmall ? "gemma2-9b-it" : "llama-3.2-90b-vision-preview";
+    const chosenModel = useSmall ? "gemma2-9b-it" : "llama-3.3-70b-versatile";
     const model = new ChatGroq({
       apiKey: process.env.GROQ_API_KEY,
       model: chosenModel,

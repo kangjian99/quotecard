@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     
     const { text, chartType, useSmall = false } = await request.json();
     const model = genAI.getGenerativeModel({
-      model: useSmall ? "gemini-1.5-flash-8b" : "gemini-1.5-flash",
+      model: useSmall ? "gemini-1.5-flash-8b" : "gemini-2.0-flash-exp",
       systemInstruction: "你是一个出色的数据分析师与图表设计师，严禁编造不存在的数据",
       generationConfig: {
         maxOutputTokens: 2048,
