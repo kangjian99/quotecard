@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 
 export async function POST(request: Request) {
   try {
-    const { text, renderMode, candidateCount } = await request.json();
+    const { text, renderMode } = await request.json();
     
     const model = genAI.getGenerativeModel({
       model: "gemini-2.0-flash-exp",
@@ -15,7 +15,6 @@ export async function POST(request: Request) {
         temperature: 1.5,
         responseMimeType: "application/json",
         responseSchema: googleAISchema,
-        candidateCount: candidateCount,
       },
     });
 
@@ -50,50 +49,29 @@ export async function POST(request: Request) {
       : `分析这段文字的风格和内容，并提供合适的视觉设计参数：${text}`;
 
     const result = await model.generateContent(prompt);
-    //console.log(result.response.candidates);
-    const designs = result.response?.candidates?.map(candidate => {
-      const text = candidate.content.parts[0].text;
-      console.log(text);
-      return JSON.parse(text as string);
-    }) || [];
     
-    return NextResponse.json(designs);
+    const response = JSON.parse(result.response.text());
+    console.log(response);
+
+    return NextResponse.json(response);
     
   } catch (error) {
     console.error('API Error:', error);
-    return NextResponse.json([
-      {
-        theme: 'geometric',
-        svgStyle: {
-          backgroundColor: '#ffffff',
-          primaryColor: '#4A90E2',
-          secondaryColor: '#F5A623',
-          patterns: []
-        },
-        typography: {
-          fontFamily: 'elegant-cn',
-          fontSize: 24,
-          lineHeight: 1.5,
-          textColor: '#333333'
-        },
-        explanation: '默认几何风格设计方案一'
+    return NextResponse.json({
+      theme: 'geometric',
+      svgStyle: {
+        backgroundColor: '#ffffff',
+        primaryColor: '#4A90E2',
+        secondaryColor: '#F5A623',
+        patterns: []
       },
-      {
-        theme: 'geometric',
-        svgStyle: {
-          backgroundColor: '#ffffff',
-          primaryColor: '#2ECC71',
-          secondaryColor: '#E74C3C',
-          patterns: []
-        },
-        typography: {
-          fontFamily: 'elegant-cn',
-          fontSize: 24,
-          lineHeight: 1.5,
-          textColor: '#333333'
-        },
-        explanation: '默认几何风格设计方案二'
-      }
-    ]);
+      typography: {
+        fontFamily: 'elegant-cn',
+        fontSize: 24,
+        lineHeight: 1.5,
+        textColor: '#333333'
+      },
+      explanation: '默认几何风格设计'
+    });
   }
 } 

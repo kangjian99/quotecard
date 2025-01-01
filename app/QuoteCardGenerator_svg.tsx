@@ -145,7 +145,8 @@ const QuoteCardGeneratorSvg = () => {
   const [text, setText] = useState('');
   const [author, setAuthor] = useState('');
   const [source, setSource] = useState('');
-  const [styleConfig, setStyleConfig] = useState<StyleConfig | null>(null);
+  const [candidateCount, setCandidateCount] = useState(2);
+  const [styleConfigs, setStyleConfigs] = useState<StyleConfig[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [renderMode, setRenderMode] = useState<'traditional' | 'geometric'>('geometric');
   const [useFixedFormat, setUseFixedFormat] = useState(false);
@@ -156,15 +157,15 @@ const QuoteCardGeneratorSvg = () => {
       // 确保所有必填字段都已填写
       if (text.length > 10 && author && source) {  // 修改这里的条件
         setIsAnalyzing(true);
-        const analysis = await analyzeTextWithAI(text, renderMode);
-        setStyleConfig(analysis);
+        const analysis = await analyzeTextWithAI(text, renderMode, candidateCount);
+        setStyleConfigs(analysis);
         setIsAnalyzing(false);
       }
     };
 
     const debounceAnalysis = setTimeout(analyzeText, 3000); // 添加防抖
     return () => clearTimeout(debounceAnalysis);
-  }, [text, author, source, renderMode]);  // 添加 author 和 source 作为依赖
+  }, [text, author, source, renderMode, candidateCount]);  // 添加 author 和 source 作为依赖
 
   // 字号映射函数
   const getFontSizeClass = (size: 'sm' | 'base' | 'lg' | 'xl' | '2xl') => {
@@ -189,7 +190,7 @@ const QuoteCardGeneratorSvg = () => {
   };
 
   // 获取当前主题的图标
-  const ThemeIcon = styleConfig?.theme ? themeIcons[styleConfig.theme as keyof typeof themeIcons] : null;
+  const ThemeIcon = styleConfigs.length > 0 ? themeIcons[styleConfigs[0].theme as keyof typeof themeIcons] : null;
 
   const getFontFamilyClass = (fontFamily: string) => {
     const fontMap = {
@@ -204,8 +205,8 @@ const QuoteCardGeneratorSvg = () => {
     return fontMap[fontFamily as keyof typeof fontMap] || 'font-modern-cn';
   };
 
-  const downloadQuoteCard = async () => {
-    const element = document.getElementById('quote-card-svg');
+  const downloadQuoteCard = async (index: number) => {
+    const element = document.getElementById(`quote-card-svg-${index}`);
     if (!element) {
       console.error('找不到 SVG 元素');
       return;
@@ -227,7 +228,7 @@ const QuoteCardGeneratorSvg = () => {
       });
       
       const link = document.createElement('a');
-      link.download = `quote-${Date.now()}.png`;
+      link.download = `quote-${Date.now()}-${index}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -239,15 +240,15 @@ const QuoteCardGeneratorSvg = () => {
     <div className="min-h-screen py-12">
       <div className="container mx-auto p-4 max-w-4xl">
         <div className="mb-4 flex gap-4 items-center">
-          {/* <select 
-            value={renderMode}
-            onChange={(e) => setRenderMode(e.target.value as 'traditional' | 'geometric')}
+          <select
+            value={candidateCount}
+            onChange={(e) => setCandidateCount(Number(e.target.value))}
             className="p-2 border rounded"
           >
-            <option value="traditional">传统样式</option>
-            <option value="geometric">几何风格</option>
-          </select> */}
-
+            <option value={1}>生成1个方案</option>
+            <option value={2}>生成2个方案</option>
+            <option value={3}>生成3个方案</option>
+          </select>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -289,64 +290,62 @@ const QuoteCardGeneratorSvg = () => {
           </div>
         )}
         
-        {styleConfig && (
-          <>
-            {renderMode === 'traditional' ? (
-              // 原有的卡片渲染逻辑
-              <div className="space-y-6 my-6">
-                {/* 现有的三种字体版本... */}
-              </div>
-            ) : (
-              // 新的几何风格SVG卡片
-              <GeometricQuoteCard
-                text={text}
-                author={author}
-                source={source}
-                svgStyle={styleConfig.svgStyle || {
-                  backgroundColor: '#ffffff',
-                  primaryColor: styleConfig.colorScheme.primary,
-                  secondaryColor: styleConfig.colorScheme.secondary,
-                  patterns: []
-                }}
-                typography={styleConfig.typography || {
-                  fontFamily: styleConfig.fontFamily,
-                  fontSize: 16,
-                  lineHeight: 1.5,
-                  textColor: styleConfig.colorScheme.textColor
-                }}
-                useFixedFormat={useFixedFormat}
-              />
-            )}
-            {styleConfig.explanation && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg text-gray-700">
-                  <h3 className="text-lg font-medium mb-2">设计说明：</h3>
-                  <p className="whitespace-pre-line">{styleConfig.explanation}</p>
+        {styleConfigs.length > 0 && (
+          <div className="space-y-8">
+            {styleConfigs.map((styleConfig, index) => (
+              <div key={index} className="border p-4 rounded-lg">
+                <h2 className="text-lg font-medium mb-4">设计方案 {index + 1}</h2>
+                <div id={`quote-card-svg-${index}`}>
+                  <GeometricQuoteCard
+                    text={text}
+                    author={author}
+                    source={source}
+                    svgStyle={styleConfig.svgStyle || {
+                      backgroundColor: '#ffffff',
+                      primaryColor: styleConfig.colorScheme.primary,
+                      secondaryColor: styleConfig.colorScheme.secondary,
+                      patterns: []
+                    }}
+                    typography={styleConfig.typography || {
+                      fontFamily: styleConfig.fontFamily,
+                      fontSize: 16,
+                      lineHeight: 1.5,
+                      textColor: styleConfig.colorScheme.textColor
+                    }}
+                    useFixedFormat={useFixedFormat}
+                  />
                 </div>
-            )}
-            
-            <div className="flex justify-center mt-4">
-              <Button 
-                onClick={downloadQuoteCard}
-                variant="default"
-              >
-                下载图片
-              </Button>
-            </div>
-          </>
+                {styleConfig.explanation && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg text-gray-700">
+                    <h3 className="text-lg font-medium mb-2">设计说明：</h3>
+                    <p className="whitespace-pre-line">{styleConfig.explanation}</p>
+                  </div>
+                )}
+                <div className="flex justify-center mt-4">
+                  <Button 
+                    onClick={() => downloadQuoteCard(index)}
+                    variant="default"
+                  >
+                    下载方案 {index + 1}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
   );
 };
 
-async function analyzeTextWithAI(text: string, renderMode: string) {
+async function analyzeTextWithAI(text: string, renderMode: string, candidateCount: number) {
   try {
     const response = await fetch('/api/analyze_svg', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text, renderMode }),
+      body: JSON.stringify({ text, renderMode, candidateCount }),
     });
 
     if (!response.ok) {
